@@ -1,0 +1,76 @@
+﻿# 示例剧本：根据小说章节生成的 YAML
+
+meta:
+  title: "暗涌（示例）"
+  original_author: "示例作者"
+  adaptor: "AI 小说转剧本工具"
+  version: "1.0"
+  source_chapters: [1, 2, 3]
+  genre: "悬疑"
+  total_scenes: 3
+
+characters:
+  - id: LIN_XIAO
+    name: "林晓"
+    role: "主角"
+    age: 28
+    gender: "男"
+    occupation: "刑警"
+    personality: ["冷静", "执着"]
+    description: "市刑警队骨干，因三年前的一桩悬案始终无法释怀。"
+
+  - id: CHEN_YU
+    name: "陈宇"
+    role: "配角"
+    age: 35
+    gender: "男"
+    occupation: "刑警队长"
+    personality: ["沉稳", "幽默"]
+    description: "林晓的搭档和上司，经验丰富的老刑警。"
+
+scenes:
+  - id: 1
+    slug: "废弃厂房-初次交锋"
+    location: "城郊废弃化工厂 - 二楼车间"
+    time: "深夜 23:30"
+    weather: "小雨"
+    mood: "压抑、不安"
+    emotional_arc:
+      start: "紧张"
+      end: "震惊"
+    characters_present:
+      - LIN_XIAO
+      - CHEN_YU
+    summary: "林晓和陈宇深夜突袭废弃工厂，发现了意想不到的线索。"
+    elements:
+      - type: action
+        description: "雨滴敲打铁皮屋顶。车间深处有微弱的灯光摇曳。"
+        camera: "establishing"
+        lighting: "low-key"
+      - type: dialogue
+        character: LIN_XIAO
+        line: "分头搜。有任何动静，对讲机联系。"
+        parenthetical: "（压低声音）"
+        emotion: "警觉"
+      - type: action
+        description: "陈宇点头，向左侧走廊走去。"
+      - type: dialogue
+        character: CHEN_YU
+        line: "等等——你看这里。"
+        parenthetical: "（蹲下，用手电照地面）"
+      - type: action
+        description: "地面上一滩暗红色液体尚未凝固。一串脚印延伸向黑暗。"
+      - type: voiceover
+        character: LIN_XIAO
+        line: "三年了。同一个手法。他回来了。"
+        emotion: "压抑的愤怒"
+      - type: action
+        description: "【场景结束】"
+
+adaptation_notes:
+  pacing_analysis: "整体节奏前松后紧，建议第2-4章合并为一个场景。"
+  suggested_bgm:
+    - scene: 1
+      style: "ambient-tension"
+      reference: "low drone，类似《真探》原声带"
+  missing_context: "小说中林晓三年前的案件在第5章才揭露，改编前4场时需在人物动作中埋下伏笔。"
