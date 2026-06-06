@@ -1,0 +1,135 @@
+const API_URL = "https://api.deepseek.com/v1/chat/completions";
+
+interface ConversionResult {
+  yaml: string;
+  error?: string;
+}
+
+export async function convertNovel(
+  text: string,
+  chapterCount: number,
+  apiKey: string
+): Promise<ConversionResult> {
+  if (!text.trim()) {
+    return { yaml: "", error: "请输入小说文本" };
+  }
+
+  const systemPrompt = `你是一位资深的影视编剧和剧本医生。请将用户提供的小说章节文本转换为结构化的 YAML 剧本。
+
+## 输出要求
+
+严格按照以下 YAML Schema 输出，不要遗漏任何字段，不要添加额外解释文字，只输出 YAML：
+
+\`\`\`yaml
+meta:
+  title: "原著标题"
+  original_author: "原作者"
+  adaptor: "AI 小说转剧本工具"
+  version: "1.0"
+  source_chapters: [${Array.from({ length: chapterCount }, (_, i) => i + 1).join(", ")}]
+  genre: "推测类型"
+  total_scenes: N
+
+characters:
+  - id: ROLE_ID
+    name: "角色名"
+    aliases: ["昵称"]
+    role: "主角/配角"
+    age: N
+    gender: "男/女"
+    occupation: "职业"
+    personality: ["标签1", "标签2"]
+    description: "一句话介绍"
+
+scenes:
+  - id: 1
+    slug: "简短标题"
+    location: "具体地点"
+    time: "时间描述"
+    mood: "情绪基调"
+    emotional_arc:
+      start: "起始情绪"
+      end: "结束情绪"
+    characters_present: [ROLE_ID]
+    summary: "场景概要"
+    elements:
+      - type: action
+        description: "动作/环境描述"
+        camera: "镜头语言(可选)"
+        lighting: "灯光风格(可选)"
+      - type: dialogue
+        character: ROLE_ID
+        line: "对白内容"
+        parenthetical: "(表演提示)"
+        emotion: "情绪"
+      - type: voiceover
+        character: ROLE_ID
+        line: "内心独白"
+        emotion: "情绪"
+
+adaptation_notes:
+  pacing_analysis: "节奏分析"
+  suggested_bgm:
+    - scene: 1
+      style: "音乐风格"
+      reference: "参考曲目"
+  missing_context: "缺失上下文说明"
+\`\`\`
+
+## 转换规则
+
+1. **人物提取**：识别所有有名有姓的角色，为每人创建唯一 id（英文大写+下划线），列出别名和外号
+2. **场景切分**：按地点/时间变化切分场景，每个场景必须有 mood 和 emotional_arc
+3. **叙事转画面**：将小说描写转为 action 类型元素；环境描写保留 camera 和 lighting 提示
+4. **对白提取**：将引号内的对话转为 dialogue，添加 emotion 和 parenthetical（表演提示）
+5. **内心独白**：非对话的心理描写转为 voiceover
+6. **改编建议**：在 adaptation_notes 中标注节奏问题、缺失上下文、建议 BGM 风格
+
+## 注意事项
+- 对白保持原文风格，不要过度改写
+- emotion 用中文（如"愤怒""温柔""冷漠"）
+- camera 取值：establishing/wide/two-shot/close-up/pov/tracking
+- lighting 取值：high-key/low-key/silhouette/natural/neon
+- 如果原文某信息缺失（如确切年龄），标注为 0 或留空`;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-v4-pro",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `请将以下小说章节转换为剧本 YAML：\n\n${text}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 8192,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const msg =
+        (errorData as { error?: { message?: string } }).error?.message ||
+        `API 请求失败 (${response.status})`;
+      return { yaml: "", error: msg };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // 提取 YAML 代码块（DeepSeek 可能包裹在 ```yaml 中）
+    const yamlMatch = content.match(/```yaml?\n?([\s\S]*?)```/);
+    const yaml = yamlMatch ? yamlMatch[1].trim() : content.trim();
+
+    return { yaml };
+  } catch {
+    return { yaml: "", error: "网络请求失败，请检查网络连接或 API Key 是否正确" };
+  }
+}
