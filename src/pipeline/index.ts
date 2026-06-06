@@ -34,7 +34,7 @@ async function callDeepSeek(
     const err = await response.json().catch(() => ({}));
     throw new Error(
       (err as { error?: { message?: string } }).error?.message ||
-        `API \u9519\u8BEF (${response.status})`
+        `API 错误 (${response.status})`
     );
   }
 
@@ -149,7 +149,8 @@ adaptation_notes:
 7. 角色年龄未明确时务必推测，标注 age: 45  # 推测，严禁 age: 0
 8. 识别所有角色别名填入 aliases
 9. 作品标题：区分章节标题与小说原名。如原文以章节标题开头（如"第一章 XXX"），不要将其作为 meta.title。尝试从序言、简介或上下文推断真正的小说名；若无法确定，标注"未知"
-10. 仅输出 YAML，不要 Markdown 代码块包裹`;
+10. 所有字符串值（除数字和布尔外）必须用双引号包裹，如 name: "徐来"、mood: "压抑"
+11. 仅输出 YAML，不要 Markdown 代码块包裹`;
 
 export async function runPipeline(
   novelText: string,
@@ -158,41 +159,41 @@ export async function runPipeline(
   onProgress: (p: PipelineProgress) => void
 ): Promise<string> {
   const cleanText = novelText.trim();
-  if (!cleanText) throw new Error("\u8BF7\u8F93\u5165\u5C0F\u8BF4\u6587\u672C");
+  if (!cleanText) throw new Error("请输入小说文本");
 
   // Step 1: Extract Characters (Flash, fast)
-  onProgress({ step: 1, total: 3, label: "\u6B63\u5728\u63D0\u53D6\u4EBA\u7269\u6863\u6848..." });
+  onProgress({ step: 1, total: 3, label: "正在提取人物档案..." });
   const charactersYaml = await callDeepSeek(
     STEP1_PROMPT,
-    `\u4ECE\u4EE5\u4E0B\u5C0F\u8BF4\uFF08${chapterCount}\u7AE0\uFF09\u4E2D\u63D0\u53D6\u6240\u6709\u89D2\u8272\uFF1A\n\n${cleanText}`,
+    `从以下小说（${chapterCount}章）中提取所有角色：\n\n${cleanText}`,
     "deepseek-v4-flash",
     2048,
     apiKey
   );
 
   // Step 2: Identify Scenes (Flash, fast)
-  onProgress({ step: 2, total: 3, label: "\u6B63\u5728\u8BC6\u522B\u573A\u666F\u8FB9\u754C..." });
+  onProgress({ step: 2, total: 3, label: "正在识别场景边界..." });
   const scenesYaml = await callDeepSeek(
     STEP2_PROMPT,
-    `\u89D2\u8272\u5217\u8868\uFF1A\n${charactersYaml}\n\n\u5C0F\u8BF4\u539F\u6587\uFF1A\n${cleanText}`,
+    `角色列表：\n${charactersYaml}\n\n小说原文：\n${cleanText}`,
     "deepseek-v4-flash",
     4096,
     apiKey
   );
 
   // Step 3: Generate Full Script (Pro, quality)
-  onProgress({ step: 3, total: 3, label: "\u6B63\u5728\u751F\u6210\u5267\u672CYAML..." });
+  onProgress({ step: 3, total: 3, label: "正在生成剧本YAML..." });
   const context = [
-    "## \u89D2\u8272\u8868",
+    "## 角色表",
     charactersYaml,
     "",
-    "## \u573A\u666F\u5207\u5206",
+    "## 场景切分",
     scenesYaml,
   ].join("\n");
 
   const finalYaml = await callDeepSeek(
     STEP3_PROMPT.replace("{context}", context),
-    `\u5C06\u4EE5\u4E0B\u5C0F\u8BF4\uFF08${chapterCount}\u7AE0\uFF09\u8F6C\u6362\u4E3A\u5B8C\u6574 YAML \u5267\u672C\uFF1A\n\n${cleanText}`,
+    `将以下小说（${chapterCount}章）转换为完整 YAML 剧本：\n\n${cleanText}`,
     "deepseek-v4-pro",
     16384,
     apiKey
