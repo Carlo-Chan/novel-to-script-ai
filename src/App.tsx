@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { convertNovel } from './lib/deepseek';
 import { runPipeline, type PipelineProgress } from './pipeline';
+import { refineScript } from './lib/refine';
 
 const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined;
 
@@ -30,6 +31,15 @@ function App() {
   const [usePipeline, setUsePipeline] = useState(true);
   const [progress, setProgress] = useState<PipelineProgress | null>(null);
   const [flash, setFlash] = useState(false);
+  const [refineInput, setRefineInput] = useState('');
+  const [refining, setRefining] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [preEditOutput, setPreEditOutput] = useState('');
+  type HistoryEntry = { version: number; text: string };
+  const [versionCounter, setVersionCounter] = useState(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  
 
   const wordCount = input.trim().length;
   const hasKey = Boolean(API_KEY && API_KEY !== 'your_deepseek_api_key_here');
@@ -44,6 +54,9 @@ function App() {
     setLoading(true);
     setProgress(null);
     setFlash(false);
+    if (output && !output.startsWith('#')) {
+      pushHistory(output);
+    }
 
     try {
       if (usePipeline) {
@@ -52,6 +65,7 @@ function App() {
           (p) => setProgress(p)
         );
         setOutput(result);
+        pushHistory(result);
       } else {
         setOutput('# 转换中，请稍候...');
         const result = await convertNovel(input, chapterCount, API_KEY);
@@ -60,6 +74,7 @@ function App() {
           setOutput('# 转换失败');
         } else {
           setOutput(result.yaml);
+          pushHistory(result.yaml);
         }
       }
       setFlash(true);
@@ -72,6 +87,27 @@ function App() {
       setProgress(null);
     }
   }, [input, chapterCount, hasKey, API_KEY, usePipeline]);
+
+  const handleRefine = useCallback(async () => {
+    if (!hasKey || !API_KEY || !refineInput.trim()) return;
+    if (output && !output.startsWith('#')) {
+      pushHistory(output);
+    }
+    setRefining(true);
+    setError('');
+    try {
+      const result = await refineScript(output, refineInput, API_KEY);
+      setOutput(result);
+      pushHistory(result);
+      setRefineInput('');
+      setFlash(true);
+      setTimeout(() => setFlash(false), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '未知错误');
+    } finally {
+      setRefining(false);
+    }
+  }, [output, refineInput, hasKey, API_KEY]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,6 +130,37 @@ function App() {
       setTimeout(() => setCopied(false), 2000);
     } catch { /* */ }
   }, [output]);
+
+  const handleSaveEdit = useCallback(() => {
+    setEditing(false);
+    if (output && !output.startsWith('#')) {
+      pushHistory(output);
+    }
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1500);
+  }, [output]);
+
+  const handleCancelEdit = useCallback(() => {
+    setOutput(preEditOutput);
+    setEditing(false);
+  }, [preEditOutput]);
+
+  const pushHistory = useCallback((text: string) => {
+    setVersionCounter(c => c + 1);
+    setHistory(h => [{ version: h.length > 0 ? Math.max(...h.map(e => e.version)) + 1 : 1, text }, ...h.slice(0, 19)]);
+  }, []);
+
+  const handleDeleteHistory = useCallback((version: number) => {
+    if (!window.confirm(`确定要删除 Version ${version} 吗？`)) return;
+    setHistory(h => {
+      const filtered = h.filter(e => e.version !== version);
+      // If deleted the latest version, allow reuse
+      if (version === Math.max(...h.map(e => e.version))) {
+        setVersionCounter(c => c - 1);
+      }
+      return filtered;
+    });
+  }, []);
 
   const handleDownload = useCallback(() => {
     const blob = new Blob([output], { type: 'text/yaml;charset=utf-8' });
@@ -214,7 +281,7 @@ const highlightYaml = (yaml: string): string => {
           />
         </section>
 
-        <section className={`flex-1 flex flex-col md:w-1/2 ${flash ? 'ring-2 ring-green-400 ring-opacity-50' : ''}`}>
+        <section className={`flex-1 flex flex-col md:w-1/2 relative overflow-hidden ${flash ? 'ring-2 ring-green-400 ring-opacity-50' : ''}`}>
           <div className={`flex items-center justify-between px-4 py-2.5 border-b shrink-0 h-[41px] ${hdrBg}`}>
             <h2 className={`text-xs font-semibold uppercase tracking-wide ${subText}`}>
               剧本输出（YAML）
@@ -226,9 +293,16 @@ const highlightYaml = (yaml: string): string => {
               <button onClick={handleDownload} className={`px-2.5 py-1 text-xs rounded transition-colors ${btnMuted}`}>
                 下载
               </button>
-              <button onClick={resetOutput} className={`px-2 py-1 text-xs rounded transition-colors hover:bg-red-100 dark:hover:bg-red-900/20 ${btnMuted}`} title='清空输出'>
-                清除
+              <button
+                onClick={() => { if (editing) { handleSaveEdit(); } else { setPreEditOutput(output); setEditing(true); } }}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${editing ? 'bg-green-600 text-white hover:bg-green-500' : btnMuted}`}
+              >
+                {editing ? '保存' : '编辑'}
               </button>
+              <button onClick={editing ? handleCancelEdit : resetOutput} className={`px-2 py-1 text-xs rounded transition-colors hover:bg-red-100 dark:hover:bg-red-900/20 ${btnMuted}`} title='清空输出'>
+                {editing ? '取消' : '清除'}
+              </button>
+
             </div>
           </div>
 
@@ -249,10 +323,124 @@ const highlightYaml = (yaml: string): string => {
             </div>
           )}
 
-          <pre
+          {(true) && (
+            <>
+              {/* --- 历史记录抽屉面板 --- */}
+              <div
+                className={`absolute top-0 right-0 h-full z-30 transition-transform duration-300 ease-in-out flex ${
+                  showHistory ? 'translate-x-0' : 'translate-x-full'
+                }`}
+                style={{ width: '320px' }}
+              >
+                {/* 书签拉环按钮 */}
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className={`absolute -left-[23px] top-1/2 -translate-y-1/2 w-6 h-12 flex items-center justify-center rounded-l-full border border-r-0 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] transition-colors cursor-pointer z-40 ${
+                    isDark
+                      ? 'bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200'
+                      : 'bg-white border-gray-200 text-gray-400 hover:text-gray-600'
+                  }`}
+                  title="历史记录"
+                >
+                  {showHistory ? (
+                    // 展开时的 >
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  ) : (
+                    // 收起时的 <
+                    <svg className="w-4 h-4 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* 面板主体内容 */}
+                <div className={`w-full h-full border-l shadow-2xl flex flex-col ${
+                  isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  {/* 标题栏：去掉关闭按钮，文字居中 (justify-center) */}
+                  <div className={`flex items-center justify-center px-5 py-2.5 border-b shrink-0 h-[41px] ${hdrBg}`}>
+                    <h2 className={`text-xs font-semibold uppercase tracking-wide ${subText}`}>
+                      修订历史 ({history.length})
+                    </h2>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    {history.length === 0 ? (
+                      <div className={`text-xs text-center mt-10 ${subText}`}>
+                        暂无历史记录<br/><br/>每次成功转换或修改后将自动保存
+                      </div>
+                    ) : (
+                      history.map((entry) => {
+                        const firstLine = entry.text.split('\n')[0].replace(/^# /, '').slice(0, 35);
+                        return (
+                          <div
+                            key={entry.version}
+                            onClick={() => { setOutput(entry.text); setShowHistory(false); }}
+                            className={`group w-full text-left p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
+                              isDark
+                                ? 'bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750'
+                                : 'bg-gray-50 border-gray-200 hover:border-blue-400 hover:bg-blue-50/50 hover:shadow-sm'
+                            } ${subText}`}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="font-mono text-xs font-semibold text-blue-500">
+                                Version {entry.version}
+                              </span>
+                               <span
+                                 onClick={(e) => { e.stopPropagation(); handleDeleteHistory(entry.version); }}
+                                 className="text-xs text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ml-2"
+                                 title="删除此记录"
+                               >
+                                 ✕
+                               </span>
+                            </div>
+                            <div className="text-xs truncate text-gray-700 dark:text-gray-300">
+                              {firstLine || '(空片段)'}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* --- 历史记录抽屉面板 END --- */}
+            </>
+          )}
+          {editing ? (
+            <textarea
+              className={`flex-1 p-4 resize-none outline-none text-sm leading-relaxed font-mono ${outputBg}`}
+              value={output}
+              onChange={(e) => setOutput(e.target.value)}
+            />
+          ) : (
+            <pre
             className={`flex-1 p-4 overflow-auto text-sm leading-relaxed font-mono whitespace-pre-wrap ${outputBg}`}
             dangerouslySetInnerHTML={{ __html: highlightYaml(output) }}
           />
+          )}
+          {(true) && (
+            <div className={`flex items-center gap-2 px-3 py-2 border-t shrink-0 ${hdrBg}`}>
+              <input
+                type='text'
+                value={refineInput}
+                onChange={(e) => setRefineInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleRefine()}
+                placeholder={output && !output.startsWith('#') ? '输入修改指令，如：“把第3场的气氛改温馨”' : '转换完成后可输入修改指令'}
+                className={`flex-1 px-3 py-1.5 text-xs rounded border outline-none ${inputBg}`}
+                disabled={!output || output.startsWith('#') || refining}
+              />
+              <button
+                onClick={handleRefine}
+                disabled={!output || output.startsWith('#') || refining || !refineInput.trim()}
+                className='px-3 py-1.5 text-xs rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors shrink-0'
+              >
+                {refining ? '生成中...' : '发送'}
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
