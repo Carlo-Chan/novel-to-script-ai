@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Scrollbar styling */
+/* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -24,7 +24,7 @@
   background: #6b7280;
 }
 
-/* Firefox */
+/* Firefox 滚动条 */
 * {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
@@ -33,7 +33,7 @@
   scrollbar-color: #4b5563 transparent;
 }
 
-/* Hide native number input arrows */
+/* 隐藏数字输入框原生箭头 */
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
