@@ -93,6 +93,7 @@ adaptation_notes:
 - camera 取值：establishing/wide/two-shot/close-up/pov/tracking
 - lighting 取值：high-key/low-key/silhouette/natural/neon
 - 作品标题：区分章节标题与小说原名。如原文以章节标题开头（如"第一章 XXX"），不要将其作为 meta.title。尝试从序言、简介或上下文推断真正的小说名；若无法确定，标注"未知"
+- 所有字符串值（除数字和布尔外）必须用双引号包裹，如 name: "徐来"
 - 如果原文某信息确实缺失且无法推测（如少量路人角色），留空或标注 N/A。对于主要角色，务必推测年龄`;
 
   try {
