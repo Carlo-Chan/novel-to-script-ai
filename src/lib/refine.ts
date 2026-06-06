@@ -52,7 +52,7 @@ ${currentYaml}
   const data = await response.json();
   const result = data.choices?.[0]?.message?.content || '';
 
-  // Strip markdown fences
+  // 去除 markdown 代码块标记
   let cleaned = result;
   const nl = cleaned.indexOf(String.fromCharCode(10));
   if (cleaned.startsWith('```')) cleaned = cleaned.slice(nl + 1);

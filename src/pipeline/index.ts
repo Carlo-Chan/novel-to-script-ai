@@ -161,7 +161,7 @@ export async function runPipeline(
   const cleanText = novelText.trim();
   if (!cleanText) throw new Error("请输入小说文本");
 
-  // Step 1: Extract Characters (Flash, fast)
+  // 第一步：提取角色信息（Flash，快速）
   onProgress({ step: 1, total: 3, label: "正在提取人物档案..." });
   const charactersYaml = await callDeepSeek(
     STEP1_PROMPT,
@@ -171,7 +171,7 @@ export async function runPipeline(
     apiKey
   );
 
-  // Step 2: Identify Scenes (Flash, fast)
+  // 第二步：识别场景拆分（Flash，快速）
   onProgress({ step: 2, total: 3, label: "正在识别场景边界..." });
   const scenesYaml = await callDeepSeek(
     STEP2_PROMPT,
@@ -181,7 +181,7 @@ export async function runPipeline(
     apiKey
   );
 
-  // Step 3: Generate Full Script (Pro, quality)
+  // 第三步：生成完整剧本（Pro，高质量）
   onProgress({ step: 3, total: 3, label: "正在生成剧本YAML..." });
   const context = [
     "## 角色表",
@@ -199,7 +199,7 @@ export async function runPipeline(
     apiKey
   );
 
-  // Strip markdown code fences if present
+  // 去除可能包裹的 markdown 代码块标记
   const cleaned = finalYaml.replace(/^```ya?ml?\n?/i, "").replace(/\n?```$/i, "");
   return cleaned.trim();
 }
