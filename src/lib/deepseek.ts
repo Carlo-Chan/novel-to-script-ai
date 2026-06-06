@@ -113,7 +113,7 @@ adaptation_notes:
           },
         ],
         temperature: 0.7,
-        max_tokens: 8192,
+        max_tokens: 16384,
       }),
     });
 
@@ -128,9 +128,11 @@ adaptation_notes:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // 提取 YAML 代码块（DeepSeek 可能包裹在 ```yaml 中）
-    const yamlMatch = content.match(/```yaml?\n?([\s\S]*?)```/);
-    const yaml = yamlMatch ? yamlMatch[1].trim() : content.trim();
+    // 去除可能包裹的 markdown 代码块标记
+    let yaml = content
+      .replace(/^```ya?ml?\n?/i, "")
+      .replace(/\n?```$/i, "")
+      .trim();
 
     return { yaml };
   } catch {
