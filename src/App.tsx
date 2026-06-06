@@ -12,10 +12,31 @@ function App() {
   const [chapterCount, setChapterCount] = useState(3);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
   const [usePipeline, setUsePipeline] = useState(true);
   const [progress, setProgress] = useState<PipelineProgress | null>(null);
 
   const hasKey = Boolean(API_KEY && API_KEY !== 'your_deepseek_api_key_here');
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback silently
+    }
+  }, [output]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([output], { type: 'text/yaml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'screenplay.yaml';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [output]);
 
   const handleConvert = useCallback(async () => {
     if (!hasKey || !API_KEY) return;
@@ -81,10 +102,16 @@ function App() {
               剧本输出（YAML）
             </h2>
             <div className="flex gap-2">
-              <button className="px-3 py-1 text-xs rounded bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors">
-                复制
+              <button
+                onClick={handleCopy}
+                className="px-3 py-1 text-xs rounded bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors"
+              >
+                {copied ? '已复制' : '复制'}
               </button>
-              <button className="px-3 py-1 text-xs rounded bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors">
+              <button
+                onClick={handleDownload}
+                className="px-3 py-1 text-xs rounded bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors"
+              >
                 下载
               </button>
             </div>
