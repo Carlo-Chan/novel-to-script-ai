@@ -87,10 +87,12 @@ adaptation_notes:
 
 ## 注意事项
 - 对白保持原文风格，不要过度改写
+- 年龄推测：如果原文未明确角色年龄，根据身份、辈分、职业和语境合理推测（如“父亲”推测 45-55，“大学生”推测 20-22）。在 age 值后添加 YAML 注释标注，格式：age: 45  # 推测。严禁输出 age: 0
+- 别名提取：务必识别角色的所有称呼（外号、敬称、亲属称谓），填入 aliases 列表
 - emotion 用中文（如"愤怒""温柔""冷漠"）
 - camera 取值：establishing/wide/two-shot/close-up/pov/tracking
 - lighting 取值：high-key/low-key/silhouette/natural/neon
-- 如果原文某信息缺失（如确切年龄），标注为 0 或留空`;
+- 如果原文某信息确实缺失且无法推测（如少量路人角色），留空或标注 N/A。对于主要角色，务必推测年龄`;
 
   try {
     const response = await fetch(API_URL, {
