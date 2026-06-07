@@ -37,6 +37,30 @@ function App() {
   outputRef.current = output;
   const refineInputRef = useRef(refineInput);
   refineInputRef.current = refineInput;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileOpen = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'txt' && ext !== 'md') {
+      setError('仅支持 .txt 和 .md 文件');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setInput(reader.result as string);
+      setError('');
+    };
+    reader.onerror = () => setError('文件读取失败');
+    reader.readAsText(file);
+    // Reset so same file can be re-opened
+    e.target.value = '';
+  }, []);
   
 
   const wordCount = input.trim().length;
@@ -207,21 +231,44 @@ function App() {
               小说原文
             </h2>
             <div className='flex items-center gap-2'>
-              <span className={`text-xs font-mono ${wordCount < 500 && wordCount > 0 ? 'text-yellow-600' : subText}`}>
+              <span className={`text-xs font-mono tabular-nums ${wordCount < 500 && wordCount > 0 ? 'text-yellow-600' : subText}`}>
                 {wordCount} 字
               </span>
-              {input && (
-                <button onClick={resetInput} className={`text-xs px-1.5 py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 ${subText}`} title='清空输入'>
-                  ✕
-                </button>
-              )}
+              <button onClick={handleFileOpen} className={`text-xs px-2 py-0.5 rounded transition-colors ${btnMuted}`} title='打开文件'>
+                打开
+              </button>
+              <button onClick={resetInput} className={`text-xs px-1.5 py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-opacity ${subText} ${input ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} title='清空输入'>
+                ✕
+              </button>
             </div>
           </div>
           <textarea
             className={`flex-1 p-4 resize-none outline-none text-sm leading-relaxed font-mono ${inputBg}`}
-            placeholder='在此粘贴小说章节内容（支持 3 个章节以上）...'
+            placeholder='在此粘贴小说章节内容（支持 3 个章节以上）... 也可拖拽 .txt/.md 文件到此处'
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files?.[0];
+              if (!file) return;
+              const ext = file.name.split('.').pop()?.toLowerCase();
+              if (ext !== 'txt' && ext !== 'md') {
+                setError('仅支持 .txt 和 .md 文件');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => { setInput(reader.result as string); setError(''); };
+              reader.onerror = () => setError('文件读取失败');
+              reader.readAsText(file);
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type='file'
+            accept='.txt,.md'
+            onChange={handleFileChange}
+            className='hidden'
           />
         </section>
 
