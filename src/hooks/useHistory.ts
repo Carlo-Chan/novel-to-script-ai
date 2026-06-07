@@ -19,7 +19,6 @@ export function useHistory() {
   }, []);
 
   const handleDeleteHistory = useCallback((version: number) => {
-    if (!window.confirm("确定要删除 Version " + version + " 吗？")) return;
     setHistory((h) => {
       const filtered = h.filter((e) => e.version !== version);
       if (version === Math.max(...h.map((e) => e.version))) {
