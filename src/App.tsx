@@ -1,8 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { convertNovel } from './lib/deepseek';
 import { runPipeline, type PipelineProgress } from './pipeline';
 import { refineScript } from './lib/refine';
-import { highlightYaml } from './lib/yamlHighlight';
 import { useTheme } from './hooks/useTheme';
 import { useHistory } from './hooks/useHistory';
 import HistoryPanel from './components/HistoryPanel';
@@ -27,6 +26,13 @@ function App() {
   const [editing, setEditing] = useState(false);
   const [preEditOutput, setPreEditOutput] = useState('');
   const { history, pushHistory, handleDeleteHistory, showHistory, setShowHistory } = useHistory();
+
+  const inputRef = useRef(input);
+  inputRef.current = input;
+  const outputRef = useRef(output);
+  outputRef.current = output;
+  const refineInputRef = useRef(refineInput);
+  refineInputRef.current = refineInput;
   
 
   const wordCount = input.trim().length;
@@ -39,21 +45,21 @@ function App() {
     setLoading(true);
     setProgress(null);
     setFlash(false);
-    if (output && !output.startsWith('#')) {
-      pushHistory(output);
+    if (outputRef.current && !outputRef.current.startsWith('#')) {
+      pushHistory(outputRef.current);
     }
 
     try {
       if (usePipeline) {
         const result = await runPipeline(
-          input, chapterCount, API_KEY,
+          inputRef.current, chapterCount, API_KEY,
           (p) => setProgress(p)
         );
         setOutput(result);
         pushHistory(result);
       } else {
         setOutput('# 转换中，请稍候...');
-        const result = await convertNovel(input, chapterCount, API_KEY);
+        const result = await convertNovel(inputRef.current, chapterCount, API_KEY);
         if (result.error) {
           setError(result.error);
           setOutput('# 转换失败');
@@ -71,17 +77,17 @@ function App() {
       setLoading(false);
       setProgress(null);
     }
-  }, [input, chapterCount, hasKey, API_KEY, usePipeline]);
+  }, [chapterCount, hasKey, API_KEY, usePipeline]);
 
   const handleRefine = useCallback(async () => {
-    if (!hasKey || !API_KEY || !refineInput.trim()) return;
-    if (output && !output.startsWith('#')) {
-      pushHistory(output);
+    if (!hasKey || !API_KEY || !refineInputRef.current.trim()) return;
+    if (outputRef.current && !outputRef.current.startsWith('#')) {
+      pushHistory(outputRef.current);
     }
     setRefining(true);
     setError('');
     try {
-      const result = await refineScript(output, refineInput, API_KEY);
+      const result = await refineScript(outputRef.current, refineInputRef.current, API_KEY);
       setOutput(result);
       pushHistory(result);
       setRefineInput('');
@@ -92,18 +98,21 @@ function App() {
     } finally {
       setRefining(false);
     }
-  }, [output, refineInput, hasKey, API_KEY]);
+  }, [hasKey, API_KEY]);
+
+  const handleConvertRef = useRef(handleConvert);
+  handleConvertRef.current = handleConvert;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        handleConvert();
+        handleConvertRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleConvert]);
+  }, []);
 
   const resetInput = () => setInput('');
   const resetOutput = () => setOutput('# 剧本将在此处生成...\n\n# 粘贴小说文本后点击“开始转换”');
@@ -118,8 +127,8 @@ function App() {
 
   const handleSaveEdit = useCallback(() => {
     setEditing(false);
-    if (output && !output.startsWith('#')) {
-      pushHistory(output);
+    if (outputRef.current && !outputRef.current.startsWith('#')) {
+      pushHistory(outputRef.current);
     }
     setFlash(true);
     setTimeout(() => setFlash(false), 1500);
@@ -273,8 +282,7 @@ function App() {
           ) : (
             <pre
             className={`flex-1 p-4 overflow-auto text-sm leading-relaxed font-mono whitespace-pre-wrap ${outputBg}`}
-            dangerouslySetInnerHTML={{ __html: highlightYaml(output) }}
-          />
+            >{output}</pre>
           )}
           {(true) && (
             <div className={`flex items-center gap-2 px-3 py-2 border-t shrink-0 ${hdrBg}`}>
