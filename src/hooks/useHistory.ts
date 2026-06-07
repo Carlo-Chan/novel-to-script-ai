@@ -28,5 +28,14 @@ export function useHistory() {
     });
   }, []);
 
-  return { history, pushHistory, handleDeleteHistory, showHistory, setShowHistory };
+  const pushHistorySilent = useCallback((text: string, version: number) => {
+    setHistory((h) => [{ version, text }, ...h.slice(0, 19)]);
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    setVersionCounter(0);
+  }, []);
+
+  return { history, pushHistory, pushHistorySilent, clearHistory, handleDeleteHistory, showHistory, setShowHistory };
 }
