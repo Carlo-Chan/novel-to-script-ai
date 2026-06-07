@@ -28,7 +28,7 @@ function App() {
   const [refining, setRefining] = useState(false);
   const [editing, setEditing] = useState(false);
   const [preEditOutput, setPreEditOutput] = useState('');
-  const { history, pushHistory, handleDeleteHistory, showHistory, setShowHistory } = useHistory();
+  const { history, pushHistory, pushHistorySilent, clearHistory, handleDeleteHistory, showHistory, setShowHistory } = useHistory();
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const inputRef = useRef(input);
@@ -61,6 +61,67 @@ function App() {
     // Reset so same file can be re-opened
     e.target.value = '';
   }, []);
+
+  const handleExport = useCallback(() => {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      input,
+      output,
+      history,
+      chapterCount,
+      usePipeline,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'screenplay-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [input, output, history, chapterCount, usePipeline]);
+
+  const handleImport = useCallback(() => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json';
+    inp.onchange = (ev: Event) => {
+      const file = (ev.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result as string);
+          if (!data || typeof data.input !== 'string') throw new Error('格式无效');
+          clearHistory();
+          setInput(data.input || '');
+          if (data.output && typeof data.output === 'string') {
+            setOutput(data.output);
+          }
+          if (Array.isArray(data.history)) {
+            for (let i = data.history.length - 1; i >= 0; i--) {
+              const entry = data.history[i];
+              if (entry.text && typeof entry.version === 'number') {
+                pushHistorySilent(entry.text, entry.version);
+              }
+            }
+          }
+          if (typeof data.chapterCount === 'number' && data.chapterCount >= 3) {
+            setChapterCount(data.chapterCount);
+          }
+          if (typeof data.usePipeline === 'boolean') {
+            setUsePipeline(data.usePipeline);
+          }
+          setError('');
+        } catch {
+          setError('导入失败：文件格式无效');
+        }
+      };
+      reader.onerror = () => setError('文件读取失败');
+      reader.readAsText(file);
+    };
+    inp.click();
+  }, [pushHistorySilent, clearHistory]);
   
 
   const wordCount = input.trim().length;
@@ -202,9 +263,15 @@ function App() {
         <div className='flex items-center gap-3'>
           <img src={isDark ? iconDark : iconLight} alt='logo' className='w-10 h-10' />
           <h1 className='text-lg font-bold tracking-tight'>AI 小说转剧本工具</h1>
+          <span className={`text-xs ${subText} ml-1`}>v1.0.0</span>
         </div>
         <div className='flex items-center gap-3'>
-          <span className={`text-xs ${subText}`}>v1.0.0</span>
+          <button onClick={handleImport} className={`text-xs px-2 py-0.5 rounded transition-colors ${btnMuted}`} title='导入备份'>
+            导入
+          </button>
+          <button onClick={handleExport} className={`text-xs px-2 py-0.5 rounded transition-colors ${btnMuted}`} title='导出备份'>
+            导出
+          </button>
           <button
             onClick={toggleTheme}
             className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors ${pipeOff}`}
@@ -396,9 +463,7 @@ function App() {
               onClick={() => setChapterCount(c => Math.max(3, c - 1))}
               className={`px-1.5 py-0.5 text-xs rounded-l border border-r-0 transition-colors ${numInput}`}
             >
-              <svg className='w-2.5 h-2.5' fill='none' stroke='currentColor' strokeWidth={2} viewBox='0 0 24 24'>
-                <path strokeLinecap='round' d='M5 12h14'/>
-              </svg>
+              −
             </button>
             <span className={`px-2 py-0.5 text-xs border-y text-center w-10 select-none ${numInput}`}>
               {chapterCount}
