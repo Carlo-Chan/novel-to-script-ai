@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { convertNovel } from './lib/deepseek';
+import { convertNovel } from './lib/convert';
 import { runPipeline, type PipelineProgress } from './pipeline';
 import { refineScript } from './lib/refine';
 import { useTheme } from './hooks/useTheme';
@@ -61,7 +61,7 @@ function App() {
     };
     reader.onerror = () => setError('文件读取失败');
     reader.readAsText(file);
-    // Reset so same file can be re-opened
+    // 重置以允许重新选择同一文件
     e.target.value = '';
   }, []);
 

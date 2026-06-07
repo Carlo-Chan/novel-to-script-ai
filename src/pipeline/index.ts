@@ -7,7 +7,7 @@ export interface PipelineProgress {
   label: string;
 }
 
-async function callDeepSeek(
+async function callLLM(
   systemPrompt: string,
   userMessage: string,
   model: string,
@@ -166,7 +166,7 @@ export async function runPipeline(
 
   // 第一步：提取角色信息（Flash，快速）
   onProgress({ step: 1, total: 3, label: "正在提取人物档案..." });
-  const charactersYaml = await callDeepSeek(
+  const charactersYaml = await callLLM(
     STEP1_PROMPT,
     `从以下小说（${chapterCount}章）中提取所有角色：\n\n${cleanText}`,
     settings.models.pipelineStep1.model,
@@ -177,7 +177,7 @@ export async function runPipeline(
 
   // 第二步：识别场景拆分（Flash，快速）
   onProgress({ step: 2, total: 3, label: "正在识别场景边界..." });
-  const scenesYaml = await callDeepSeek(
+  const scenesYaml = await callLLM(
     STEP2_PROMPT,
     `角色列表：\n${charactersYaml}\n\n小说原文：\n${cleanText}`,
     settings.models.pipelineStep2.model,
@@ -196,7 +196,7 @@ export async function runPipeline(
     scenesYaml,
   ].join("\n");
 
-  const finalYaml = await callDeepSeek(
+  const finalYaml = await callLLM(
     STEP3_PROMPT.replace("{context}", context),
     `将以下小说（${chapterCount}章）转换为完整 YAML 剧本：\n\n${cleanText}`,
     settings.models.pipelineStep3.model,
