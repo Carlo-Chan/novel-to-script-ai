@@ -1,18 +1,21 @@
-const API_URL = 'https://api.deepseek.com/v1/chat/completions';
+import type { AppSettings } from './settings';
+import { buildApiUrl } from './settings';
 
 export async function refineScript(
   currentYaml: string,
   instruction: string,
-  apiKey: string
+  settings: AppSettings
 ): Promise<string> {
-  const response = await fetch(API_URL, {
+  const apiUrl = buildApiUrl(settings.baseUrl);
+  const modelCfg = settings.models.refine;
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: 'Bearer ' + settings.apiKey,
     },
     body: JSON.stringify({
-      model: 'deepseek-v4-pro',
+      model: modelCfg.model,
       messages: [
         {
           role: 'system',
@@ -38,7 +41,7 @@ ${currentYaml}
         },
       ],
       temperature: 0.5,
-      max_tokens: 16384,
+      max_tokens: modelCfg.maxTokens,
     }),
   });
 

@@ -1,4 +1,5 @@
-const API_URL = "https://api.deepseek.com/v1/chat/completions";
+import type { AppSettings } from "./settings";
+import { buildApiUrl } from "./settings";
 
 interface ConversionResult {
   yaml: string;
@@ -8,13 +9,13 @@ interface ConversionResult {
 export async function convertNovel(
   text: string,
   chapterCount: number,
-  apiKey: string
+  settings: AppSettings
 ): Promise<ConversionResult> {
   if (!text.trim()) {
     return { yaml: "", error: "请输入小说文本" };
   }
 
-  const systemPrompt = `你是一位资深的影视编剧和剧本医生。请将用户提供的小说章节文本转换为结构化的 YAML 剧本。
+const systemPrompt = `你是一位资深的影视编剧和剧本医生。请将用户提供的小说章节文本转换为结构化的 YAML 剧本。
 
 ## 输出要求
 
@@ -96,24 +97,27 @@ adaptation_notes:
 - 所有字符串值（除数字和布尔外）必须用双引号包裹，如 name: "徐来"
 - 如果原文某信息确实缺失且无法推测（如少量路人角色），留空或标注 N/A。对于主要角色，务必推测年龄`;
 
+
   try {
-    const response = await fetch(API_URL, {
+    const apiUrl = buildApiUrl(settings.baseUrl);
+    const modelCfg = settings.models.singleShot;
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: "Bearer " + settings.apiKey,
       },
       body: JSON.stringify({
-        model: "deepseek-v4-pro",
+        model: modelCfg.model,
         messages: [
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `请将以下小说章节转换为剧本 YAML：\n\n${text}`,
+            content: "请将以下小说章节转换为剧本 YAML：\n\n" + text,
           },
         ],
         temperature: 0.7,
-        max_tokens: 16384,
+        max_tokens: modelCfg.maxTokens,
       }),
     });
 
@@ -121,14 +125,13 @@ adaptation_notes:
       const errorData = await response.json().catch(() => ({}));
       const msg =
         (errorData as { error?: { message?: string } }).error?.message ||
-        `API 请求失败 (${response.status})`;
+        "API 请求失败 (" + response.status + ")";
       return { yaml: "", error: msg };
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // 去除可能包裹的 markdown 代码块标记
     let yaml = content
       .replace(/^```ya?ml?\n?/i, "")
       .replace(/\n?```$/i, "")
