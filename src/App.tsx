@@ -5,6 +5,9 @@ import { refineScript } from './lib/refine';
 import { useTheme } from './hooks/useTheme';
 import { useHistory } from './hooks/useHistory';
 import HistoryPanel from './components/HistoryPanel';
+import ConfirmDialog from './components/ConfirmDialog';
+import iconLight from './assets/light.png';
+import iconDark from './assets/dark.png';
 
 const API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined;
 
@@ -26,6 +29,7 @@ function App() {
   const [editing, setEditing] = useState(false);
   const [preEditOutput, setPreEditOutput] = useState('');
   const { history, pushHistory, handleDeleteHistory, showHistory, setShowHistory } = useHistory();
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const inputRef = useRef(input);
   inputRef.current = input;
@@ -172,23 +176,23 @@ function App() {
     <div className={`flex flex-col h-screen ${pageBg} ${pageText}`}>
       <header className={`flex items-center justify-between px-6 py-3 border-b shrink-0 min-h-[48px] ${hdrBg}`}>
         <div className='flex items-center gap-3'>
-          <span className='text-lg'>{String.fromCodePoint(0x1F3AC)}</span>
+          <img src={isDark ? iconDark : iconLight} alt='logo' className='w-10 h-10' />
           <h1 className='text-lg font-bold tracking-tight'>AI 小说转剧本工具</h1>
         </div>
         <div className='flex items-center gap-3'>
-          <span className={`text-xs ${subText}`}>v0.4.0</span>
+          <span className={`text-xs ${subText}`}>v1.0.0</span>
           <button
             onClick={toggleTheme}
-            className={`w-7 h-7 flex items-center justify-center rounded-full border transition-colors ${pipeOff}`}
+            className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors ${pipeOff}`}
             title={isDark ? '切换亮色主题' : '切换暗色主题'}
           >
             {!isDark ? (
-              <svg className='w-4 h-4' fill='none' stroke='#f59e0b' strokeWidth={2} viewBox='0 0 24 24'>
+              <svg className='w-5 h-5' fill='none' stroke='#f59e0b' strokeWidth={2} viewBox='0 0 24 24'>
                 <circle cx={12} cy={12} r={5}/>
                 <path d='M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'/>
               </svg>
             ) : (
-              <svg className='w-4 h-4' fill='none' stroke='#a78bfa' strokeWidth={2} viewBox='0 0 24 24'>
+              <svg className='w-5 h-5' fill='none' stroke='#a78bfa' strokeWidth={2} viewBox='0 0 24 24'>
                 <path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/>
               </svg>
             )}
@@ -239,27 +243,45 @@ function App() {
               >
                 {editing ? '保存' : '编辑'}
               </button>
-              <button onClick={editing ? handleCancelEdit : resetOutput} className={`px-2 py-1 text-xs rounded transition-colors hover:bg-red-100 dark:hover:bg-red-900/20 ${btnMuted}`} title='清空输出'>
+              <button onClick={editing ? handleCancelEdit : resetOutput} className={`px-2.5 py-1 text-xs rounded transition-colors hover:bg-red-100 dark:hover:bg-red-900/20 ${btnMuted}`} title='清空输出'>
                 {editing ? '取消' : '清除'}
               </button>
 
             </div>
           </div>
 
-          {progress && (
+          {(loading || refining) && (
             <div className={`px-4 py-2 border-b ${progressBg}`}>
-              <div className='flex items-center justify-between text-xs mb-1'>
-                <span className={subText}>
-                  步骤 {progress.step}/{progress.total}: {progress.label}
-                </span>
-                <span className={subText}>{Math.round(((progress.step - 1) / progress.total) * 100)}%</span>
-              </div>
-              <div className={`w-full rounded-full h-1.5 ${progressTrack}`}>
-                <div
-                  className='bg-blue-500 h-1.5 rounded-full transition-all duration-500 animate-pulse'
-                  style={{ width: `${((progress.step - 1) / progress.total) * 100}%` }}
-                />
-              </div>
+              {progress ? (
+                <>
+                  <div className='flex items-center justify-between text-xs mb-1'>
+                    <span className={subText}>
+                      {String.fromCharCode(27493)}骤 {progress.step}/{progress.total}: {progress.label}
+                    </span>
+                    <span className={subText}>{Math.round(((progress.step - 1) / progress.total) * 100)}%</span>
+                  </div>
+                  <div className={`w-full rounded-full h-1.5 ${progressTrack}`}>
+                    <div
+                      className='bg-blue-500 h-1.5 rounded-full transition-all duration-500'
+                      style={{ width: `${((progress.step - 1) / progress.total) * 100}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className='flex items-center justify-between text-xs mb-1'>
+                    <span className={subText}>
+                      {refining ? 'AI 正在修改剧本...' : 'AI 正在转换剧本...'}
+                    </span>
+                  </div>
+                  <div className={`w-full rounded-full h-1.5 overflow-hidden ${progressTrack}`}>
+                    <div
+                      className='bg-blue-500 h-1.5 rounded-full animate-[indeterminate_1.5s_ease-in-out_infinite]'
+                      style={{ width: '40%' }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -268,7 +290,7 @@ function App() {
             showHistory={showHistory}
             setShowHistory={setShowHistory}
             setOutput={setOutput}
-            handleDeleteHistory={handleDeleteHistory}
+            handleDeleteHistory={(v) => setDeleteTarget(v)}
             isDark={isDark}
             hdrBg={hdrBg}
             subText={subText}
@@ -307,6 +329,16 @@ function App() {
         </section>
       </main>
 
+      {deleteTarget !== null && (
+        <ConfirmDialog
+          open={true}
+          title="确认删除"
+          message={`确定要删除 Version ${deleteTarget} 吗？此操作不可撤销。`}
+          onConfirm={() => { handleDeleteHistory(deleteTarget); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+          isDark={isDark}
+        />
+      )}
       <footer className={`flex items-center justify-between px-6 py-3 border-t shrink-0 flex-wrap gap-2 ${footerBg}`}>
         <div className='flex items-center gap-3 flex-wrap'>
           <label className={`text-xs ${labelText}`}>
@@ -317,7 +349,9 @@ function App() {
               onClick={() => setChapterCount(c => Math.max(3, c - 1))}
               className={`px-1.5 py-0.5 text-xs rounded-l border border-r-0 transition-colors ${numInput}`}
             >
-              −
+              <svg className='w-2.5 h-2.5' fill='none' stroke='currentColor' strokeWidth={2} viewBox='0 0 24 24'>
+                <path strokeLinecap='round' d='M5 12h14'/>
+              </svg>
             </button>
             <span className={`px-2 py-0.5 text-xs border-y text-center w-10 select-none ${numInput}`}>
               {chapterCount}
@@ -332,19 +366,24 @@ function App() {
 
           <button
             onClick={() => setUsePipeline(!usePipeline)}
+            title="分步模式：分三步处理（提取角色 → 分析场景 → 生成剧本），质量更高但速度较慢"
             className={`px-2.5 py-1 text-xs rounded border transition-colors ${usePipeline ? pipeOn : pipeOff}`}
           >
-            {usePipeline ? 'Pipeline: ON' : 'Pipeline: OFF'}
+            {usePipeline ? '分步模式: ON' : '分步模式: OFF'}
           </button>
 
           {!hasKey && (
             <span className='text-xs text-yellow-600'>
-              ⚠ 请将 .env.example 复制为 .env 并填入 DeepSeek API Key
+              <svg className='w-3.5 h-3.5 inline-block mr-0.5 -mt-0.5' fill='none' stroke='currentColor' strokeWidth={2} strokeLinecap='round' strokeLinejoin='round' viewBox='0 0 24 24'>
+                <path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01'/>
+              </svg> 请将 .env.example 复制为 .env 并填入 DeepSeek API Key
             </span>
           )}
           {wordCount > 0 && wordCount < 500 && (
             <span className='text-xs text-yellow-600'>
-              ⚠ 文本较短（{wordCount}字），建议至少 500 字
+              <svg className='w-3.5 h-3.5 inline-block mr-0.5 -mt-0.5' fill='none' stroke='currentColor' strokeWidth={2} strokeLinecap='round' strokeLinejoin='round' viewBox='0 0 24 24'>
+                <path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01'/>
+              </svg> 文本较短（{wordCount}字），建议至少 500 字
             </span>
           )}
           {error && (

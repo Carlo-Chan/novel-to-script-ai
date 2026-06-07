@@ -75,27 +75,27 @@ export default function HistoryPanel({
                   <div
                     key={entry.version}
                     onClick={() => { setOutput(entry.text); setShowHistory(false); }}
-                    className={`group w-full text-left p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
+                    className={`group w-full text-left p-3 pr-8 rounded-lg border transition-all duration-200 cursor-pointer relative ${
                       isDark
                         ? "bg-gray-800 border-gray-700 hover:border-blue-500 hover:bg-gray-750"
                         : "bg-gray-50 border-gray-200 hover:border-blue-400 hover:bg-blue-50/50 hover:shadow-sm"
                     } ${subText}`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="mb-1.5">
                       <span className="font-mono text-xs font-semibold text-blue-500">
                         Version {entry.version}
-                      </span>
-                      <span
-                        onClick={(e) => { e.stopPropagation(); handleDeleteHistory(entry.version); }}
-                        className="text-xs text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ml-2"
-                        title="删除此记录"
-                      >
-                        ✕
                       </span>
                     </div>
                     <div className="text-xs truncate text-gray-700 dark:text-gray-300">
                       {firstLine || "(空片段)"}
                     </div>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); handleDeleteHistory(entry.version); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      title="删除此记录"
+                    >
+                      ✕
+                    </span>
                   </div>
                 );
               })
