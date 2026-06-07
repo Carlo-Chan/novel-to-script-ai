@@ -1,4 +1,5 @@
-const API_URL = "https://api.deepseek.com/v1/chat/completions";
+import type { AppSettings } from "../lib/settings";
+import { buildApiUrl } from "../lib/settings";
 
 export interface PipelineProgress {
   step: number;
@@ -9,15 +10,17 @@ export interface PipelineProgress {
 async function callDeepSeek(
   systemPrompt: string,
   userMessage: string,
-  model: "deepseek-v4-flash" | "deepseek-v4-pro",
+  model: string,
   maxTokens: number,
+  baseUrl: string,
   apiKey: string
 ): Promise<string> {
-  const response = await fetch(API_URL, {
+  const apiUrl = buildApiUrl(baseUrl);
+  const response = await fetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: "Bearer " + apiKey,
     },
     body: JSON.stringify({
       model,
@@ -25,7 +28,7 @@ async function callDeepSeek(
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      temperature: model === "deepseek-v4-flash" ? 0.3 : 0.5,
+      temperature: 0.5,
       max_tokens: maxTokens,
     }),
   });
@@ -155,7 +158,7 @@ adaptation_notes:
 export async function runPipeline(
   novelText: string,
   chapterCount: number,
-  apiKey: string,
+  settings: AppSettings,
   onProgress: (p: PipelineProgress) => void
 ): Promise<string> {
   const cleanText = novelText.trim();
@@ -166,9 +169,10 @@ export async function runPipeline(
   const charactersYaml = await callDeepSeek(
     STEP1_PROMPT,
     `从以下小说（${chapterCount}章）中提取所有角色：\n\n${cleanText}`,
-    "deepseek-v4-flash",
-    2048,
-    apiKey
+    settings.models.pipelineStep1.model,
+    settings.models.pipelineStep1.maxTokens,
+    settings.baseUrl,
+    settings.apiKey
   );
 
   // 第二步：识别场景拆分（Flash，快速）
@@ -176,9 +180,10 @@ export async function runPipeline(
   const scenesYaml = await callDeepSeek(
     STEP2_PROMPT,
     `角色列表：\n${charactersYaml}\n\n小说原文：\n${cleanText}`,
-    "deepseek-v4-flash",
-    4096,
-    apiKey
+    settings.models.pipelineStep2.model,
+    settings.models.pipelineStep2.maxTokens,
+    settings.baseUrl,
+    settings.apiKey
   );
 
   // 第三步：生成完整剧本（Pro，高质量）
@@ -194,9 +199,10 @@ export async function runPipeline(
   const finalYaml = await callDeepSeek(
     STEP3_PROMPT.replace("{context}", context),
     `将以下小说（${chapterCount}章）转换为完整 YAML 剧本：\n\n${cleanText}`,
-    "deepseek-v4-pro",
-    16384,
-    apiKey
+    settings.models.pipelineStep3.model,
+    settings.models.pipelineStep3.maxTokens,
+    settings.baseUrl,
+    settings.apiKey
   );
 
   // 去除可能包裹的 markdown 代码块标记
